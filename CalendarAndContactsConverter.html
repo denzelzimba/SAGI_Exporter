@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPG CAGI Exporter</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            /* Client's Custom Branding */
+            --primary: #1A1861;
+            --primary-hover: #0F0E3B;
+            
+            --bg: #F3F4F6;
+            --surface: #FFFFFF;
+            --text: #1F2937;
+            --text-light: #6B7280;
+            --success: #10B981;
+            --border: #E5E7EB;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: var(--surface);
+            padding: 0;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            max-width: 550px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .header {
+            padding: 40px 40px 30px; /* Added slightly more padding to the overall header box */
+            text-align: center;
+        }
+        
+        /* Adjusted Headers for better spacing and hierarchy */
+        h1 { margin: 0; font-size: 24px; color: var(--text); font-weight: 600; } /* Dialed back from default bold to semi-bold */
+        h1.brand-title { color: var(--primary); font-size: 28px; margin-bottom: 15px; font-weight: 800;} /* Increased spacing below brand */
+        
+        /* Increased spacing above the paragraph */
+        p { color: var(--text-light); margin: 18px 0 0; line-height: 1.5; font-size: 15px; } 
+        
+        /* Tabs Styling */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: #F9FAFB;
+        }
+        .tab {
+            flex: 1;
+            padding: 15px 0;
+            text-align: center;
+            font-weight: 600;
+            color: var(--text-light);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab:hover { color: var(--primary); }
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background: var(--surface);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px 40px;
+            text-align: center;
+        }
+        .tab-content.active { display: block; }
+
+        .drop-zone {
+            border: 2px dashed #D1D5DB;
+            border-radius: 12px;
+            padding: 40px 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: #F9FAFB;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--primary);
+            background-color: rgba(26, 24, 97, 0.05); 
+        }
+        .drop-zone svg { width: 48px; height: 48px; color: var(--primary); margin-bottom: 15px; }
+        .drop-zone-text { font-weight: 600; color: var(--primary); }
+        
+        input[type="file"] { display: none; }
+        
+        .status {
+            margin-top: 20px;
+            font-weight: 500;
+            font-size: 14px;
+            min-height: 20px;
+        }
+        .success { color: var(--success); }
+        .error { color: #EF4444; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1 class="brand-title">CPG SAGI</h1>
+            <h1>Calendar & Contacts Exporter</h1>
+            <p>Convert your Consultant Inspection files into ready-to-import formats.</p>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('calendar')">Calendar</div>
+            <div class="tab" onclick="switchTab('contacts')">Contacts</div>
+            <div class="tab" onclick="switchTab('both')">Both</div>
+        </div>
+
+        <div id="tab-calendar" class="tab-content active">
+            <div class="drop-zone" id="dropZoneCal">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <div class="drop-zone-text">Drop file for Calendar Export</div>
+                <div style="font-size: 12px; color: var(--text-light); margin-top: 5px;">Extracts addresses & dates (.ics)</div>
+            </div>
+            <input type="file" id="fileInputCal" accept=".csv, .xlsx, .xls">
+            <div id="statusCal" class="status"></div>
+        </div>
+
+        <div id="tab-contacts" class="tab-content">
+            <div class="drop-zone" id="dropZoneCont">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <div class="drop-zone-text">Drop file for Contacts Export</div>
+                <div style="font-size: 12px; color: var(--text-light); margin-top: 5px;">Extracts Names & Numbers (.csv)</div>
+            </div>
+            <input type="file" id="fileInputCont" accept=".csv, .xlsx, .xls">
+            <div id="statusCont" class="status"></div>
+        </div>
+
+        <div id="tab-both" class="tab-content">
+            <div class="drop-zone" id="dropZoneBoth">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <div class="drop-zone-text">Drop file for Calendar & Contacts Export</div>
+                <div style="font-size: 12px; color: var(--text-light); margin-top: 5px;">Generates Calendar (.ics) & Contacts (.csv) instantly</div>
+            </div>
+            <input type="file" id="fileInputBoth" accept=".csv, .xlsx, .xls">
+            <div id="statusBoth" class="status"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- TAB LOGIC ---
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            if(tabName === 'calendar') {
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.getElementById('tab-calendar').classList.add('active');
+            } else if (tabName === 'contacts') {
+                document.querySelectorAll('.tab')[1].classList.add('active');
+                document.getElementById('tab-contacts').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab')[2].classList.add('active');
+                document.getElementById('tab-both').classList.add('active');
+            }
+        }
+
+        // --- COMMON UTILS ---
+        function parseJsonSafe(str) {
+            if (!str) return {};
+            try { return JSON.parse(str); } catch (e) { return {}; }
+        }
+
+        function escapeCSV(str) {
+            if (!str) return "";
+            str = str.toString().trim();
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        }
+
+        function formatIcsDate(dateInput) {
+            if (!dateInput) return null;
+            let year, month, day;
+            if (typeof dateInput === 'string' && dateInput.includes('-')) {
+                const parts = dateInput.split(' ')[0].split('-');
+                if (parts.length === 3 && parts[0].length === 4) {
+                    year = parseInt(parts[0], 10); month = parseInt(parts[1], 10); day = parseInt(parts[2], 10);
+                }
+            }
+            if (!year) {
+                const d = new Date(dateInput);
+                if (isNaN(d.getTime())) return null;
+                year = d.getFullYear(); month = d.getMonth() + 1; day = d.getDate();
+            }
+            if (!year || isNaN(year)) return null;
+
+            const startStr = `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
+            const nextDay = new Date(Date.UTC(year, month - 1, day + 1));
+            const endStr = `${nextDay.getUTCFullYear()}${String(nextDay.getUTCMonth() + 1).padStart(2, '0')}${String(nextDay.getUTCDate()).padStart(2, '0')}`;
+            return { start: startStr, end: endStr };
+        }
+
+        // 35 Headers Google Contacts uses
+        const GOOGLE_HEADERS = [
+            "Name", "Given Name", "Additional Name", "Family Name", "Yomi Name", 
+            "Given Name Yomi", "Additional Name Yomi", "Family Name Yomi", "Name Prefix", 
+            "Name Suffix", "Initials", "Nickname", "Short Name", "Maiden Name", "Birthday", 
+            "Gender", "Location", "Billing Information", "Directory Server", "Mileage", 
+            "Occupation", "Hobby", "Sensitivity", "Priority", "Subject", "Notes", "Language", 
+            "Photo", "Group Membership", "E-mail 1 - Type", "E-mail 1 - Value", 
+            "Phone 1 - Type", "Phone 1 - Value", "Phone 2 - Type", "Phone 2 - Value"
+        ];
+
+        // --- EVENT LISTENERS BINDING ---
+        function setupDropZone(dropZoneId, inputId, processFunction) {
+            const dropZone = document.getElementById(dropZoneId);
+            const fileInput = document.getElementById(inputId);
+            
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault(); dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) processFunction(e.dataTransfer.files[0]);
+            });
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length) processFunction(e.target.files[0]);
+            });
+        }
+
+        setupDropZone('dropZoneCal', 'fileInputCal', processCalendarFile);
+        setupDropZone('dropZoneCont', 'fileInputCont', processContactsFile);
+        setupDropZone('dropZoneBoth', 'fileInputBoth', processBothFile);
+
+        // --- CALENDAR ONLY LOGIC ---
+        function processCalendarFile(file) {
+            const statusDiv = document.getElementById('statusCal');
+            statusDiv.textContent = "Processing Calendar..."; statusDiv.className = "status";
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {raw: false});
+                    
+                    const { icsContent, count } = buildCalendarData(rows);
+                    if (count === 0) throw new Error("No dates found.");
+
+                    downloadFile(icsContent.join("\r\n"), 'text/calendar;charset=utf-8;', 'Calendar_Import.ics');
+                    statusDiv.textContent = `✅ Success! Exported ${count} calendar events.`; statusDiv.className = "status success";
+                } catch (error) {
+                    statusDiv.textContent = `❌ Error: Please check file format.`; statusDiv.className = "status error";
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- CONTACTS ONLY LOGIC ---
+        function processContactsFile(file) {
+            const statusDiv = document.getElementById('statusCont');
+            statusDiv.textContent = "Processing Contacts..."; statusDiv.className = "status";
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                    
+                    const { csvLines, count } = buildContactsData(rows);
+                    if (count === 0) throw new Error("No applicant data found.");
+
+                    const today = new Date();
+                    const fileDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+                    downloadFile(csvLines.join("\n"), 'text/csv;charset=utf-8;', `Google_Contacts_Import_${fileDate}.csv`);
+                    
+                    statusDiv.textContent = `✅ Success! Exported ${count} contacts.`; statusDiv.className = "status success";
+                } catch (error) {
+                    statusDiv.textContent = `❌ Error: Could not extract applicant data.`; statusDiv.className = "status error";
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- BOTH LOGIC ---
+        function processBothFile(file) {
+            const statusDiv = document.getElementById('statusBoth');
+            statusDiv.textContent = "Processing Both Exports..."; statusDiv.className = "status";
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+                    // Used for Calendar
+                    const rowsFormatted = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {raw: false});
+                    // Used for Contacts
+                    const rowsRaw = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                    
+                    const calData = buildCalendarData(rowsFormatted);
+                    const contData = buildContactsData(rowsRaw);
+
+                    if (calData.count === 0 && contData.count === 0) throw new Error("No valid data found.");
+
+                    // Download Calendar first
+                    if (calData.count > 0) {
+                        downloadFile(calData.icsContent.join("\r\n"), 'text/calendar;charset=utf-8;', 'Calendar_Import.ics');
+                    }
+                    
+                    // Delay the second download slightly to prevent browser pop-up blockers from stopping it
+                    if (contData.count > 0) {
+                        setTimeout(() => {
+                            const today = new Date();
+                            const fileDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+                            downloadFile(contData.csvLines.join("\n"), 'text/csv;charset=utf-8;', `Google_Contacts_Import_${fileDate}.csv`);
+                        }, 600);
+                    }
+
+                    statusDiv.textContent = `✅ Success! Generated ${calData.count} events & ${contData.count} contacts.`; 
+                    statusDiv.className = "status success";
+                } catch (error) {
+                    statusDiv.textContent = `❌ Error processing file data.`; statusDiv.className = "status error";
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- REUSABLE DATA BUILDERS ---
+        function buildCalendarData(rows) {
+            let icsContent = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//App//EN"];
+            let count = 0;
+
+            rows.forEach(row => {
+                const dates = formatIcsDate(row['date_sub']);
+                if (!dates) return; 
+
+                const contact = parseJsonSafe(row['invoice_contact']);
+                const invAddress = parseJsonSafe(row['invoice_address']);
+                const inspAddress = parseJsonSafe(row['inspection_address']);
+
+                const contactStr = contact.name_invoice ? `Contact: ${contact.name_invoice}, Phone: ${contact.cell_invoice || ''}` : '';
+                const invAddressParts = [invAddress.str_number_invoice, invAddress.str_name_invoice, invAddress.suburb_city_invoice].filter(Boolean);
+                const invAddressStr = invAddressParts.length ? `Address: ${invAddressParts.join(' ')}` : '';
+                const locationStr = [inspAddress.str_number_inspect, inspAddress.str_name_inspect, inspAddress.suburb_inspect, inspAddress.city_inspect].filter(Boolean).join(', ');
+
+                icsContent.push(
+                    "BEGIN:VEVENT", `DTSTART;VALUE=DATE:${dates.start}`, `DTEND;VALUE=DATE:${dates.end}`,
+                    `SUMMARY:Inspection - ${row['ref_num'] || 'Unknown'}`,
+                    `DESCRIPTION:${contactStr} || ${invAddressStr}`,
+                    `LOCATION:${locationStr}`, "END:VEVENT"
+                );
+                count++;
+            });
+
+            icsContent.push("END:VCALENDAR");
+            return { icsContent, count };
+        }
+
+        function buildContactsData(rows) {
+            let csvLines = [GOOGLE_HEADERS.join(",")];
+            let count = 0;
+            const addedPhones = new Set();
+            const skipForNotes = ["first_name", "surname", "prim_cell", "sec_cell", "app_email"];
+
+            rows.forEach(row => {
+                const applicant = parseJsonSafe(row['applicant']);
+                const firstName = applicant.first_name || "";
+                const lastName = applicant.surname || "";
+                const email = applicant.app_email || "";
+                let phone = applicant.prim_cell || "";
+                let secPhone = applicant.sec_cell || "";
+                
+                phone = phone.replace(/\s+/g, '');
+                secPhone = secPhone.replace(/\s+/g, '');
+
+                if ((firstName || lastName || phone) && !addedPhones.has(phone)) {
+                    if (phone) addedPhones.add(phone);
+
+                    let notesArray = [];
+                    for (const [key, value] of Object.entries(applicant)) {
+                        if (!skipForNotes.includes(key) && value && value.toString().trim() !== "") {
+                            const cleanKey = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                            notesArray.push(`${cleanKey}: ${value}`);
+                        }
+                    }
+
+                    let rowData = new Array(GOOGLE_HEADERS.length).fill("");
+                    rowData[0] = escapeCSV(`${firstName} ${lastName}`.trim());
+                    rowData[1] = escapeCSV(firstName);
+                    rowData[3] = escapeCSV(lastName);
+                    rowData[25] = escapeCSV(notesArray.join('\n'));
+                    rowData[28] = "* myContacts";
+                    
+                    if (email) { rowData[29] = "Work"; rowData[30] = escapeCSV(email); }
+                    if (phone) { rowData[31] = "Mobile"; rowData[32] = escapeCSV(phone); }
+                    if (secPhone) { rowData[33] = "Mobile"; rowData[34] = escapeCSV(secPhone); }
+
+                    csvLines.push(rowData.join(","));
+                    count++;
+                }
+            });
+            return { csvLines, count };
+        }
+
+        function downloadFile(content, mimeType, filename) {
+            const blob = new Blob([content], { type: mimeType });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
