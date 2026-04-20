@@ -3,48 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CPG SAGI Exporter</title>
+    <title>CPG SAGI Exporter & API Sync</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
+    
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
+
+    <script>
+        // ==========================================
+        // 🛑 PASTE YOUR API CLIENT IDs HERE 🛑
+        // ==========================================
+        const GOOGLE_CLIENT_ID = '646739042696-cl0jkfolgbp0dss01rlolf6llulfn205.apps.googleusercontent.com';
+        const MICROSOFT_CLIENT_ID = 'YOUR_MICROSOFT_CLIENT_ID_HERE';
+        // ==========================================
+    </script>
+
     <style>
         :root {
-            /* Client's Custom Branding */
             --primary: #1A1861;
             --primary-hover: #0F0E3B;
-            
             --bg: #F3F4F6;
             --surface: #FFFFFF;
             --text: #1F2937;
             --text-light: #6B7280;
             --success: #10B981;
             --border: #E5E7EB;
-        }
-
-        /* AUTO DARK MODE */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #111827;
-                --surface: #1F2937;
-                --text: #F9FAFB;
-                --text-light: #9CA3AF;
-                --border: #374151;
-            }
-            .drop-zone {
-                background-color: #374151 !important;
-                border-color: #4B5563 !important;
-            }
-            .drop-zone.dragover {
-                background-color: rgba(26, 24, 97, 0.4) !important;
-                border-color: var(--primary) !important;
-            }
-            .tabs { background: #1F2937 !important; }
-            .tab.active { background: #374151 !important; }
-            input[type="date"] {
-                background-color: #374151;
-                color: #F9FAFB;
-                border-color: #4B5563;
-                color-scheme: dark;
-            }
         }
 
         body {
@@ -58,28 +42,24 @@
             margin: 0;
             padding: 20px;
             box-sizing: border-box;
-            transition: background-color 0.3s, color 0.3s;
         }
         .container {
             background-color: var(--surface);
             padding: 0;
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-            max-width: 550px;
+            max-width: 600px;
             width: 100%;
             overflow: hidden;
-            transition: background-color 0.3s;
         }
         .header {
             padding: 40px 40px 25px;
             text-align: center;
         }
-        
         h1 { margin: 0; font-size: 24px; color: var(--text); font-weight: 600; }
         h1.brand-title { color: var(--primary); font-size: 28px; margin-bottom: 15px; font-weight: 800;}
         p { color: var(--text-light); margin: 18px 0 0; line-height: 1.5; font-size: 15px; } 
         
-        /* Date Filters UI */
         .filters-container {
             padding: 15px 40px;
             display: flex;
@@ -93,92 +73,37 @@
             flex-direction: column;
             align-items: flex-start;
         }
-        .filter-group label {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-light);
-            margin-bottom: 4px;
-        }
-        .filter-group input {
-            padding: 8px 12px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-family: inherit;
-        }
+        .filter-group label { font-size: 12px; font-weight: 600; color: var(--text-light); margin-bottom: 4px; }
+        .filter-group input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; }
 
-        /* Tabs Styling */
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid var(--border);
-            background: #F9FAFB;
-        }
-        .tab {
-            flex: 1;
-            padding: 15px 0;
-            text-align: center;
-            font-weight: 600;
-            color: var(--text-light);
-            cursor: pointer;
-            border-bottom: 3px solid transparent;
-            transition: all 0.2s;
-        }
+        .tabs { display: flex; border-bottom: 1px solid var(--border); background: #F9FAFB; }
+        .tab { flex: 1; padding: 15px 0; text-align: center; font-weight: 600; color: var(--text-light); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
         .tab:hover { color: var(--primary); }
-        .tab.active {
-            color: var(--primary);
-            border-bottom-color: var(--primary);
-            background: var(--surface);
-        }
-
-        .tab-content {
-            display: none;
-            padding: 30px 40px;
-            text-align: center;
-        }
+        .tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--surface); }
+        .tab-content { display: none; padding: 30px 40px; text-align: center; }
         .tab-content.active { display: block; }
 
-        .drop-zone {
-            border: 2px dashed #D1D5DB;
-            border-radius: 12px;
-            padding: 40px 20px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background-color: #F9FAFB;
-        }
-        .drop-zone:hover, .drop-zone.dragover {
-            border-color: var(--primary);
-            background-color: rgba(26, 24, 97, 0.05); 
-        }
+        .drop-zone { border: 2px dashed #D1D5DB; border-radius: 12px; padding: 40px 20px; cursor: pointer; transition: all 0.2s ease; background-color: #F9FAFB; }
+        .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background-color: rgba(26, 24, 97, 0.05); }
         .drop-zone svg { width: 48px; height: 48px; color: var(--primary); margin-bottom: 15px; }
         .drop-zone-text { font-weight: 600; color: var(--primary); }
-        
         input[type="file"] { display: none; }
         
-        .status {
-            margin-top: 20px;
-            font-weight: 500;
-            font-size: 14px;
-            min-height: 20px;
-            line-height: 1.6;
-        }
+        .status { margin-top: 20px; font-weight: 500; font-size: 14px; min-height: 20px; line-height: 1.6; }
         .success { color: var(--success); }
         .error { color: #EF4444; }
-
-        /* Scrollable Log Box Styling */
-        .skip-log {
-            margin-top: 15px;
-            max-height: 140px;
-            overflow-y: auto;
-            background-color: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 12px;
-            text-align: left;
-            color: var(--text-light);
-        }
+        .skip-log { margin-top: 15px; max-height: 140px; overflow-y: auto; background-color: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 12px; text-align: left; color: var(--text-light); }
         .skip-log strong { color: var(--text); }
         .skip-log ul { margin: 5px 0 0; padding-left: 20px; }
         .skip-log li { margin-bottom: 4px; }
+
+        /* FIXED CSS FOR API BUTTONS */
+        .api-buttons { display: none; gap: 10px; justify-content: center; margin-top: 15px; } /* Hidden by default until activated by JS */
+        .api-btn { padding: 10px 15px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; color: white; } /* Removed the bad display:none here */
+        .btn-google { background-color: #4285F4; }
+        .btn-google:hover { background-color: #3367D6; }
+        .btn-ms { background-color: #0078D4; }
+        .btn-ms:hover { background-color: #005A9E; }
     </style>
 </head>
 <body>
@@ -186,8 +111,8 @@
     <div class="container">
         <div class="header">
             <h1 class="brand-title">CPG SAGI</h1>
-            <h1>Calendar & Contacts Exporter</h1>
-            <p>Convert your Consultant Inspection files into ready-to-import formats.</p>
+            <h1>Calendar, Contacts & Tasks Sync</h1>
+            <p>Convert your Consultant Inspection files into ready-to-import formats or push directly to the Cloud.</p>
         </div>
 
         <div class="filters-container">
@@ -202,9 +127,10 @@
         </div>
 
         <div class="tabs">
-            <div class="tab active" onclick="switchTab('calendar')">Calendar</div>
-            <div class="tab" onclick="switchTab('contacts')">Contacts</div>
-            <div class="tab" onclick="switchTab('both')">Both</div>
+            <div class="tab active" onclick="switchTab('calendar')">📅 Calendar</div>
+            <div class="tab" onclick="switchTab('contacts')">👥 Contacts</div>
+            <div class="tab" onclick="switchTab('both')">📦 Both</div>
+            <div class="tab" onclick="switchTab('tasks')" style="color: #4F46E5;">☁️ Cloud Tasks</div>
         </div>
 
         <div id="tab-calendar" class="tab-content active">
@@ -213,7 +139,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <div class="drop-zone-text">Drop file for Calendar Export</div>
-                <div style="font-size: 12px; color: var(--text-light); margin-top: 5px;">Extracts addresses, dates & adds 8AM alarms (.ics)</div>
+                <div style="font-size: 12px; color: var(--text-light); margin-top: 5px;">Extracts 6AM-7AM inspections (.ics)</div>
             </div>
             <input type="file" id="fileInputCal" accept=".csv, .xlsx, .xls">
             <div id="statusCal" class="status"></div>
@@ -225,7 +151,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 <div class="drop-zone-text">Drop file for Contacts Export</div>
-                <div style="font-size: 12px; color: var(--text-light); margin-top: 5px;">Extracts Names & Numbers (.csv)</div>
+                <div style="font-size: 12px; color: var(--text-light); margin-top: 5px;">Extracts Names, Companies & Numbers (.csv)</div>
             </div>
             <input type="file" id="fileInputCont" accept=".csv, .xlsx, .xls">
             <div id="statusCont" class="status"></div>
@@ -242,118 +168,98 @@
             <input type="file" id="fileInputBoth" accept=".csv, .xlsx, .xls">
             <div id="statusBoth" class="status"></div>
         </div>
+
+        <div id="tab-tasks" class="tab-content">
+            <div class="drop-zone" id="dropZoneTasks">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                <div class="drop-zone-text">Drop file to prepare Cloud Tasks Sync</div>
+                <div style="font-size: 12px; color: var(--text-light); margin-top: 5px;">Securely prepares data for Google or Microsoft Tasks</div>
+            </div>
+            <input type="file" id="fileInputTasks" accept=".csv, .xlsx, .xls">
+            
+            <div id="apiButtons" class="api-buttons">
+                <button id="btnGoogle" class="api-btn btn-google" onclick="pushToGoogleTasks()">Push to Google Tasks</button>
+                <button id="btnMicrosoft" class="api-btn btn-ms" onclick="pushToMicrosoftTasks()">Push to Microsoft To Do</button>
+            </div>
+            
+            <div id="statusTasks" class="status"></div>
+        </div>
     </div>
 
     <script>
+        // --- GLOBAL API DATA STORAGE ---
+        let processedTasksData = [];
+
         // --- TAB LOGIC ---
         function switchTab(tabName) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             
-            if(tabName === 'calendar') {
-                document.querySelectorAll('.tab')[0].classList.add('active');
-                document.getElementById('tab-calendar').classList.add('active');
-            } else if (tabName === 'contacts') {
-                document.querySelectorAll('.tab')[1].classList.add('active');
-                document.getElementById('tab-contacts').classList.add('active');
-            } else {
-                document.querySelectorAll('.tab')[2].classList.add('active');
-                document.getElementById('tab-both').classList.add('active');
-            }
+            let index = ['calendar', 'contacts', 'both', 'tasks'].indexOf(tabName);
+            document.querySelectorAll('.tab')[index].classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
         }
 
         // --- UTILS ---
         function getFileTypeDisplay(filename) {
             if (!filename) return "file";
             const lowerName = filename.toLowerCase();
-            if (lowerName.endsWith('.csv')) return "CSV file";
-            if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) return "Excel sheet";
-            return "file";
+            return lowerName.endsWith('.csv') ? "CSV file" : "Excel sheet";
         }
-
-        function parseJsonSafe(str) {
-            if (!str) return {};
-            try { return JSON.parse(str); } catch (e) { return {}; }
-        }
-
+        function parseJsonSafe(str) { try { return JSON.parse(str) || {}; } catch(e) { return {}; } }
         function escapeCSV(str) {
             if (!str) return "";
             str = str.toString().trim();
-            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-                return `"${str.replace(/"/g, '""')}"`;
-            }
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) return `"${str.replace(/"/g, '""')}"`;
             return str;
         }
 
-        function formatIcsDate(dateInput) {
+        // Formats Date for Calendar (6AM - 7AM SAST is 4AM - 5AM UTC)
+        function formatIcsDateTimeSAST(dateInput) {
             if (!dateInput) return null;
-            let year, month, day;
-            if (typeof dateInput === 'string' && dateInput.includes('-')) {
-                const parts = dateInput.split(' ')[0].split('-');
-                if (parts.length === 3 && parts[0].length === 4) {
-                    year = parseInt(parts[0], 10); month = parseInt(parts[1], 10); day = parseInt(parts[2], 10);
-                }
-            }
-            if (!year) {
-                const d = new Date(dateInput);
-                if (isNaN(d.getTime())) return null;
-                year = d.getFullYear(); month = d.getMonth() + 1; day = d.getDate();
-            }
-            if (!year || isNaN(year)) return null;
-
-            const startStr = `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
-            const nextDay = new Date(Date.UTC(year, month - 1, day + 1));
-            const endStr = `${nextDay.getUTCFullYear()}${String(nextDay.getUTCMonth() + 1).padStart(2, '0')}${String(nextDay.getUTCDate()).padStart(2, '0')}`;
+            let d = new Date(dateInput);
+            if (isNaN(d.getTime())) return null;
             
-            return { start: startStr, end: endStr, year, month: month - 1, day };
+            let y = d.getFullYear();
+            let m = String(d.getMonth() + 1).padStart(2, '0');
+            let day = String(d.getDate()).padStart(2, '0');
+            
+            return {
+                start: `${y}${m}${day}T040000Z`,
+                end: `${y}${m}${day}T050000Z`,
+                year: y, month: d.getMonth(), day: d.getDate()
+            };
         }
 
-        // Validate Column Headers
         function validateColumns(rows, type) {
-            if (!rows || rows.length === 0) return { valid: false, error: "The uploaded file is completely empty." };
-            const headers = Object.keys(rows[0]);
+            if (!rows || rows.length === 0) return { valid: false, error: "The uploaded file is empty." };
+            const h = Object.keys(rows[0]);
             let missing = [];
-            
-            if (type === 'calendar' || type === 'both') {
-                ['ref_num', 'date_sub', 'invoice_contact', 'invoice_address', 'inspection_address'].forEach(col => {
-                    if (!headers.includes(col)) missing.push(`'${col}'`);
-                });
+            if (type === 'calendar' || type === 'both' || type === 'tasks') {
+                ['ref_num', 'date_sub', 'invoice_contact', 'invoice_address', 'inspection_address'].forEach(c => { if (!h.includes(c)) missing.push(`'${c}'`); });
             }
             if (type === 'contacts' || type === 'both') {
-                if (!headers.includes('applicant')) missing.push(`'applicant'`);
+                if (!h.includes('applicant')) missing.push(`'applicant'`);
             }
-            
-            if (missing.length > 0) return { valid: false, error: `Missing required columns: ${missing.join(', ')}` };
+            if (missing.length > 0) return { valid: false, error: `Missing columns: ${missing.join(', ')}` };
             return { valid: true };
         }
 
-        // Formats the detailed log box UI
         function formatSkipLog(skipDetails) {
             if (skipDetails.length === 0) return "";
-            let html = `<div class="skip-log">`;
-            html += `<strong>Detailed Skip Log:</strong><ul>`;
-            skipDetails.forEach(skip => {
-                html += `<li><strong>${skip.ref}</strong>: ${skip.reason}</li>`;
-            });
-            html += `</ul></div>`;
-            return html;
+            let html = `<div class="skip-log"><strong>Detailed Skip Log:</strong><ul>`;
+            skipDetails.forEach(skip => html += `<li><strong>${skip.ref}</strong>: ${skip.reason}</li>`);
+            return html + `</ul></div>`;
         }
 
-        const GOOGLE_HEADERS = [
-            "Name", "Given Name", "Additional Name", "Family Name", "Yomi Name", 
-            "Given Name Yomi", "Additional Name Yomi", "Family Name Yomi", "Name Prefix", 
-            "Name Suffix", "Initials", "Nickname", "Short Name", "Maiden Name", "Birthday", 
-            "Gender", "Location", "Billing Information", "Directory Server", "Mileage", 
-            "Occupation", "Hobby", "Sensitivity", "Priority", "Subject", "Notes", "Language", 
-            "Photo", "Group Membership", "E-mail 1 - Type", "E-mail 1 - Value", 
-            "Phone 1 - Type", "Phone 1 - Value", "Phone 2 - Type", "Phone 2 - Value"
-        ];
+        const GOOGLE_HEADERS = ["Name", "Given Name", "Additional Name", "Family Name", "Yomi Name", "Given Name Yomi", "Additional Name Yomi", "Family Name Yomi", "Name Prefix", "Name Suffix", "Initials", "Nickname", "Short Name", "Maiden Name", "Birthday", "Gender", "Location", "Billing Information", "Directory Server", "Mileage", "Occupation", "Hobby", "Sensitivity", "Priority", "Subject", "Notes", "Language", "Photo", "Group Membership", "E-mail 1 - Type", "E-mail 1 - Value", "Phone 1 - Type", "Phone 1 - Value", "Phone 2 - Type", "Phone 2 - Value"];
 
         // --- EVENT LISTENERS ---
         function setupDropZone(dropZoneId, inputId, processFunction) {
             const dropZone = document.getElementById(dropZoneId);
             const fileInput = document.getElementById(inputId);
-            
             dropZone.addEventListener('click', () => fileInput.click());
             dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
             dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
@@ -361,288 +267,280 @@
                 e.preventDefault(); dropZone.classList.remove('dragover');
                 if (e.dataTransfer.files.length) processFunction(e.dataTransfer.files[0]);
             });
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length) processFunction(e.target.files[0]);
-            });
+            fileInput.addEventListener('change', (e) => { if (e.target.files.length) processFunction(e.target.files[0]); });
         }
 
         setupDropZone('dropZoneCal', 'fileInputCal', processCalendarFile);
         setupDropZone('dropZoneCont', 'fileInputCont', processContactsFile);
         setupDropZone('dropZoneBoth', 'fileInputBoth', processBothFile);
+        setupDropZone('dropZoneTasks', 'fileInputTasks', processTasksFile);
 
-        // --- CALENDAR ONLY LOGIC ---
-        function processCalendarFile(file) {
-            const statusDiv = document.getElementById('statusCal');
-            const typeStr = getFileTypeDisplay(file.name);
-            statusDiv.textContent = `Processing ${typeStr} for Calendar... Please wait.`; 
-            statusDiv.className = "status";
-            
-            setTimeout(() => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, {type: 'array', cellDates: true});
-                        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {raw: false});
-                        
-                        const validation = validateColumns(rows, 'calendar');
-                        if (!validation.valid) throw new Error(validation.error);
-
-                        const { icsContent, count, skippedMissing, skippedFilter, skipDetails } = buildCalendarData(rows);
-                        if (count === 0) throw new Error("No valid dates found in the selected range.");
-
-                        downloadFile(icsContent.join("\r\n"), 'text/calendar;charset=utf-8;', 'Calendar_Import.ics');
-                        
-                        let msg = `✅ Success! Exported ${count} events.`;
-                        if (skippedMissing > 0) msg += `<br>⚠️ Skipped ${skippedMissing} rows (Missing Dates/Data).`;
-                        if (skippedFilter > 0) msg += `<br>ℹ️ Filtered out ${skippedFilter} rows (Outside Date Range).`;
-                        if (skipDetails.length > 0) msg += formatSkipLog(skipDetails);
-                        
-                        statusDiv.innerHTML = msg; 
-                        statusDiv.className = "status success";
-                    } catch (error) {
-                        statusDiv.innerHTML = `❌ Error: ${error.message}`; 
-                        statusDiv.className = "status error";
-                    }
-                };
-                reader.readAsArrayBuffer(file);
-            }, 50);
-        }
-
-        // --- CONTACTS ONLY LOGIC ---
-        function processContactsFile(file) {
-            const statusDiv = document.getElementById('statusCont');
-            const typeStr = getFileTypeDisplay(file.name);
-            statusDiv.textContent = `Processing ${typeStr} for Contacts... Please wait.`; 
-            statusDiv.className = "status";
-            
-            setTimeout(() => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, {type: 'array'});
-                        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                        
-                        const validation = validateColumns(rows, 'contacts');
-                        if (!validation.valid) throw new Error(validation.error);
-
-                        const { csvLines, count, skippedMissing, skippedFilter, skipDetails } = buildContactsData(rows);
-                        if (count === 0) throw new Error("No applicant data found in the selected range.");
-
-                        const today = new Date();
-                        const fileDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-                        downloadFile(csvLines.join("\n"), 'text/csv;charset=utf-8;', `Google_Contacts_Import_${fileDate}.csv`);
-                        
-                        let msg = `✅ Success! Exported ${count} contacts.`;
-                        if (skippedMissing > 0) msg += `<br>⚠️ Skipped ${skippedMissing} rows (No Name/Number data).`;
-                        if (skippedFilter > 0) msg += `<br>ℹ️ Filtered out ${skippedFilter} rows (Outside Date Range).`;
-                        if (skipDetails.length > 0) msg += formatSkipLog(skipDetails);
-
-                        statusDiv.innerHTML = msg; 
-                        statusDiv.className = "status success";
-                    } catch (error) {
-                        statusDiv.innerHTML = `❌ Error: ${error.message}`; 
-                        statusDiv.className = "status error";
-                    }
-                };
-                reader.readAsArrayBuffer(file);
-            }, 50);
-        }
-
-        // --- BOTH LOGIC ---
-        function processBothFile(file) {
-            const statusDiv = document.getElementById('statusBoth');
-            const typeStr = getFileTypeDisplay(file.name);
-            statusDiv.textContent = `Processing ${typeStr} for Both Exports... Please wait.`; 
-            statusDiv.className = "status";
-            
-            setTimeout(() => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, {type: 'array', cellDates: true});
-                        const rowsFormatted = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {raw: false});
-                        const rowsRaw = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                        
-                        const validation = validateColumns(rowsFormatted, 'both');
-                        if (!validation.valid) throw new Error(validation.error);
-
-                        const calData = buildCalendarData(rowsFormatted);
-                        const contData = buildContactsData(rowsRaw);
-
-                        if (calData.count === 0 && contData.count === 0) throw new Error("No valid data found in the selected range.");
-
-                        if (calData.count > 0) {
-                            downloadFile(calData.icsContent.join("\r\n"), 'text/calendar;charset=utf-8;', 'Calendar_Import.ics');
-                        }
-                        
-                        if (contData.count > 0) {
-                            setTimeout(() => {
-                                const today = new Date();
-                                const fileDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-                                downloadFile(contData.csvLines.join("\n"), 'text/csv;charset=utf-8;', `Google_Contacts_Import_${fileDate}.csv`);
-                            }, 600);
-                        }
-
-                        let msg = `✅ Success! Generated ${calData.count} events & ${contData.count} contacts.`; 
-                        if (calData.skippedFilter > 0) msg += `<br>ℹ️ Filtered out ${calData.skippedFilter} rows due to Date Range.`;
-                        
-                        // Combine skips neatly
-                        let combinedSkips = [];
-                        calData.skipDetails.forEach(s => combinedSkips.push({ ref: s.ref, reason: `Calendar: ${s.reason}`}));
-                        contData.skipDetails.forEach(s => combinedSkips.push({ ref: s.ref, reason: `Contacts: ${s.reason}`}));
-                        
-                        if (combinedSkips.length > 0) msg += formatSkipLog(combinedSkips);
-
-                        statusDiv.innerHTML = msg; 
-                        statusDiv.className = "status success";
-                    } catch (error) {
-                        statusDiv.innerHTML = `❌ Error: ${error.message}`; 
-                        statusDiv.className = "status error";
-                    }
-                };
-                reader.readAsArrayBuffer(file);
-            }, 50);
-        }
-
-        // --- REUSABLE DATA BUILDERS ---
+        // --- CORE BUILDERS ---
         function buildCalendarData(rows) {
-            let icsContent = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//App//EN"];
-            let count = 0; let skippedMissing = 0; let skippedFilter = 0;
-            let skipDetails = []; // Tracks specific missing data
+            let icsContent = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CPGSAGI//EN"];
+            let count = 0, skippedMissing = 0, skippedFilter = 0, skipDetails = [];
+            
+            const sF = document.getElementById('filterStart').value ? new Date(document.getElementById('filterStart').value).getTime() : null;
+            const eF = document.getElementById('filterEnd').value ? new Date(document.getElementById('filterEnd').value).setHours(23,59,59,999) : null;
 
-            const startInput = document.getElementById('filterStart').value;
-            const endInput = document.getElementById('filterEnd').value;
-            const sFilter = startInput ? new Date(startInput).getTime() : null;
-            const eFilter = endInput ? new Date(endInput).setHours(23,59,59,999) : null;
-
-            // Added index to locate absolute blank rows
             rows.forEach((row, index) => {
-                let ref = row['ref_num'] || `Row ${index + 2}`; // Excel rows start at 2 (after header)
+                let ref = row['ref_num'] || `Row ${index + 2}`;
+                const dates = formatIcsDateTimeSAST(row['date_sub']);
+                if (!dates) { skippedMissing++; skipDetails.push({ ref: ref, reason: "Missing date ('date_sub')" }); return; }
 
-                const dates = formatIcsDate(row['date_sub']);
-                if (!dates) { 
-                    skippedMissing++; 
-                    skipDetails.push({ ref: ref, reason: "Missing inspection date ('date_sub')" });
-                    return; 
-                }
-
-                if (sFilter || eFilter) {
-                    const evTime = new Date(dates.year, dates.month, dates.day).getTime();
-                    if (sFilter && evTime < sFilter) { skippedFilter++; return; }
-                    if (eFilter && evTime > eFilter) { skippedFilter++; return; }
+                if (sF || eF) {
+                    const evT = new Date(dates.year, dates.month, dates.day).getTime();
+                    if ((sF && evT < sF) || (eF && evT > eF)) { skippedFilter++; return; }
                 }
 
                 const contact = parseJsonSafe(row['invoice_contact']);
-                const invAddress = parseJsonSafe(row['invoice_address']);
+                const applicant = parseJsonSafe(row['applicant']);
                 const inspAddress = parseJsonSafe(row['inspection_address']);
 
-                const contactStr = contact.name_invoice ? `Contact: ${contact.name_invoice}, Phone: ${contact.cell_invoice || ''}` : '';
-                const invAddressParts = [invAddress.str_number_invoice, invAddress.str_name_invoice, invAddress.suburb_city_invoice].filter(Boolean);
-                const invAddressStr = invAddressParts.length ? `Address: ${invAddressParts.join(' ')}` : '';
                 const locationStr = [inspAddress.str_number_inspect, inspAddress.str_name_inspect, inspAddress.suburb_inspect, inspAddress.city_inspect].filter(Boolean).join(', ');
+
+                let descArr = [];
+                if(contact.name_invoice) descArr.push(`Contact Name: ${contact.name_invoice}`);
+                if(applicant.company_name) descArr.push(`Business Name: ${applicant.company_name}`);
+                if(applicant.prim_cell) descArr.push(`Phone Number/s: ${applicant.prim_cell} ${applicant.sec_cell ? '/ '+applicant.sec_cell : ''}`);
+                if(applicant.company_tel_prim) descArr.push(`Tel.Number: ${applicant.company_tel_prim}`);
+                if(applicant.app_email) descArr.push(`Email: ${applicant.app_email}`);
+                if(locationStr) descArr.push(`Address: ${locationStr}`);
+                if(applicant.property_complex) descArr.push(`Group: Complex - ${applicant.com_est_name || ''} Unit ${applicant.com_est_unitNum || ''}`);
+                if(row['ref_num']) descArr.push(`INRQ: ${row['ref_num']}`);
+                if(row['reason']) descArr.push(`Reason for Inspection: ${row['reason']}`);
+                if(row['notes']) descArr.push(`Notes: ${row['notes']}`);
+                
+                const descriptionString = descArr.join('\\n'); 
 
                 icsContent.push(
                     "BEGIN:VEVENT", 
                     `UID:${row['ref_num'] || Math.random().toString(36).substr(2, 9)}`,
-                    `DTSTART;VALUE=DATE:${dates.start}`, 
-                    `DTEND;VALUE=DATE:${dates.end}`,
-                    `SUMMARY:Inspection - ${row['ref_num'] || 'Unknown'}`,
-                    `DESCRIPTION:${contactStr} || ${invAddressStr}`,
+                    `DTSTART:${dates.start}`, 
+                    `DTEND:${dates.end}`,
+                    `SUMMARY:${row['ref_num'] || 'Unknown'} - ${locationStr || 'No Address'}`,
+                    `DESCRIPTION:${descriptionString}`,
                     `LOCATION:${locationStr}`, 
-                    "BEGIN:VALARM",
-                    "ACTION:DISPLAY",
-                    "DESCRIPTION:Inspection Today",
-                    "TRIGGER:PT8H",
-                    "END:VALARM",
+                    "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:Inspection", "TRIGGER:-PT0M", "END:VALARM", 
                     "END:VEVENT"
                 );
                 count++;
             });
-
             icsContent.push("END:VCALENDAR");
             return { icsContent, count, skippedMissing, skippedFilter, skipDetails };
         }
 
         function buildContactsData(rows) {
             let csvLines = [GOOGLE_HEADERS.join(",")];
-            let count = 0; let skippedMissing = 0; let skippedFilter = 0;
-            let skipDetails = []; // Tracks specific missing data
-            
+            let count = 0, skippedMissing = 0, skippedFilter = 0, skipDetails = [];
             const addedPhones = new Set();
-            const skipForNotes = ["first_name", "surname", "prim_cell", "sec_cell", "app_email"];
-
-            const startInput = document.getElementById('filterStart').value;
-            const endInput = document.getElementById('filterEnd').value;
-            const sFilter = startInput ? new Date(startInput).getTime() : null;
-            const eFilter = endInput ? new Date(endInput).setHours(23,59,59,999) : null;
+            
+            const sF = document.getElementById('filterStart').value ? new Date(document.getElementById('filterStart').value).getTime() : null;
+            const eF = document.getElementById('filterEnd').value ? new Date(document.getElementById('filterEnd').value).setHours(23,59,59,999) : null;
 
             rows.forEach((row, index) => {
                 let ref = row['ref_num'] || `Row ${index + 2}`;
-
-                if (row['date_sub'] && (sFilter || eFilter)) {
-                    const dates = formatIcsDate(row['date_sub']);
-                    if (dates) {
-                        const evTime = new Date(dates.year, dates.month, dates.day).getTime();
-                        if (sFilter && evTime < sFilter) { skippedFilter++; return; }
-                        if (eFilter && evTime > eFilter) { skippedFilter++; return; }
+                if (row['date_sub'] && (sF || eF)) {
+                    let d = new Date(row['date_sub']);
+                    if (!isNaN(d.getTime())) {
+                        if ((sF && d.getTime() < sF) || (eF && d.getTime() > eF)) { skippedFilter++; return; }
                     }
                 }
 
                 const applicant = parseJsonSafe(row['applicant']);
+                const inspAddress = parseJsonSafe(row['inspection_address']);
+                
                 const firstName = applicant.first_name || "";
                 const lastName = applicant.surname || "";
+                const compName = applicant.company_name || "";
                 const email = applicant.app_email || "";
-                let phone = applicant.prim_cell || "";
-                let secPhone = applicant.sec_cell || "";
-                
-                phone = phone.replace(/\s+/g, '');
-                secPhone = secPhone.replace(/\s+/g, '');
+                let phone = (applicant.prim_cell || "").replace(/\s+/g, '');
+                const locationStr = [inspAddress.str_number_inspect, inspAddress.str_name_inspect, inspAddress.suburb_inspect, inspAddress.city_inspect].filter(Boolean).join(', ');
 
                 if ((firstName || lastName || phone) && !addedPhones.has(phone)) {
                     if (phone) addedPhones.add(phone);
 
-                    let notesArray = [];
-                    for (const [key, value] of Object.entries(applicant)) {
-                        if (!skipForNotes.includes(key) && value && value.toString().trim() !== "") {
-                            const cleanKey = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                            notesArray.push(`${cleanKey}: ${value}`);
-                        }
-                    }
+                    let finalTitle = `${firstName} ${lastName}`.trim();
+                    if (compName) finalTitle += ` - ${compName}`;
 
                     let rowData = new Array(GOOGLE_HEADERS.length).fill("");
-                    rowData[0] = escapeCSV(`${firstName} ${lastName}`.trim());
+                    rowData[0] = escapeCSV(finalTitle);
                     rowData[1] = escapeCSV(firstName);
                     rowData[3] = escapeCSV(lastName);
-                    rowData[25] = escapeCSV(notesArray.join('\n'));
+                    rowData[16] = escapeCSV(locationStr);
+                    rowData[25] = escapeCSV("Inspection");
                     rowData[28] = "* myContacts";
                     
                     if (email) { rowData[29] = "Work"; rowData[30] = escapeCSV(email); }
                     if (phone) { rowData[31] = "Mobile"; rowData[32] = escapeCSV(phone); }
-                    if (secPhone) { rowData[33] = "Mobile"; rowData[34] = escapeCSV(secPhone); }
 
                     csvLines.push(rowData.join(","));
                     count++;
                 } else {
-                    if (!firstName && !lastName && !phone) {
-                        skippedMissing++;
-                        skipDetails.push({ ref: ref, reason: "Missing all applicant details (Name & Phone)" });
-                    }
+                    if (!firstName && !lastName && !phone) { skippedMissing++; skipDetails.push({ ref: ref, reason: "Missing Name & Phone" }); }
                 }
             });
             return { csvLines, count, skippedMissing, skippedFilter, skipDetails };
         }
 
+        // --- TASK API DATA BUILDER ---
+        function buildTasksData(rows) {
+            let tasks = []; let count = 0;
+            const sF = document.getElementById('filterStart').value ? new Date(document.getElementById('filterStart').value).getTime() : null;
+            const eF = document.getElementById('filterEnd').value ? new Date(document.getElementById('filterEnd').value).setHours(23,59,59,999) : null;
+
+            rows.forEach((row) => {
+                let d = new Date(row['date_sub']);
+                if (row['date_sub'] && (sF || eF)) {
+                    if (!isNaN(d.getTime())) { if ((sF && d.getTime() < sF) || (eF && d.getTime() > eF)) return; }
+                }
+
+                const contact = parseJsonSafe(row['invoice_contact']);
+                const applicant = parseJsonSafe(row['applicant']);
+                const inspAddress = parseJsonSafe(row['inspection_address']);
+                
+                const name = contact.name_invoice || applicant.first_name || "Unknown Name";
+                const tel = applicant.prim_cell || applicant.company_tel_prim || "No Tel";
+                const locationStr = [inspAddress.str_number_inspect, inspAddress.str_name_inspect, inspAddress.suburb_inspect, inspAddress.city_inspect].filter(Boolean).join(', ');
+                const reason = row['reason'] || "No Reason Specified";
+
+                let taskTitle = `${row['ref_num'] || 'No INRQ'} - ${name}`;
+                let taskDesc = `Tel: ${tel}\nAddress: ${locationStr}\nReason: ${reason}`;
+
+                let dueString = null;
+                if(!isNaN(d.getTime())) dueString = d.toISOString();
+
+                tasks.push({ title: taskTitle, notes: taskDesc, due: dueString });
+                count++;
+            });
+            return { tasks, count };
+        }
+
+        // --- PROCESS HANDLERS ---
+        function handleFileProcessing(file, type, statusDivId, engineLogic) {
+            const statusDiv = document.getElementById(statusDivId);
+            statusDiv.textContent = `Processing ${getFileTypeDisplay(file.name)}... Please wait.`; statusDiv.className = "status";
+            setTimeout(() => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array', cellDates: true});
+                        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {raw: false});
+                        const validation = validateColumns(rows, type);
+                        if (!validation.valid) throw new Error(validation.error);
+                        engineLogic(rows, statusDiv);
+                    } catch (err) { statusDiv.innerHTML = `❌ Error: ${err.message}`; statusDiv.className = "status error"; }
+                };
+                reader.readAsArrayBuffer(file);
+            }, 50);
+        }
+
+        function processCalendarFile(f) { handleFileProcessing(f, 'calendar', 'statusCal', (rows, div) => {
+            const d = buildCalendarData(rows); if(d.count===0) throw new Error("No valid dates found.");
+            downloadFile(d.icsContent.join("\r\n"), 'text/calendar', 'Calendar_Import.ics');
+            div.innerHTML = `✅ Exported ${d.count} events.` + formatSkipLog(d.skipDetails); div.className = "status success";
+        });}
+        
+        function processContactsFile(f) { handleFileProcessing(f, 'contacts', 'statusCont', (rows, div) => {
+            const d = buildContactsData(rows); if(d.count===0) throw new Error("No data found.");
+            downloadFile(d.csvLines.join("\n"), 'text/csv', `Contacts_Import.csv`);
+            div.innerHTML = `✅ Exported ${d.count} contacts.` + formatSkipLog(d.skipDetails); div.className = "status success";
+        });}
+
+        function processBothFile(f) { handleFileProcessing(f, 'both', 'statusBoth', (rows, div) => {
+            const cal = buildCalendarData(rows); const cont = buildContactsData(rows);
+            if (cal.count > 0) downloadFile(cal.icsContent.join("\r\n"), 'text/calendar', 'Calendar_Import.ics');
+            if (cont.count > 0) setTimeout(() => downloadFile(cont.csvLines.join("\n"), 'text/csv', `Contacts_Import.csv`), 600);
+            div.innerHTML = `✅ Exported ${cal.count} events & ${cont.count} contacts.`; div.className = "status success";
+        });}
+
+        function processTasksFile(f) { handleFileProcessing(f, 'tasks', 'statusTasks', (rows, div) => {
+            const tData = buildTasksData(rows);
+            if (tData.count === 0) throw new Error("No valid tasks found in range.");
+            processedTasksData = tData.tasks;
+            
+            div.innerHTML = `✅ Processed ${tData.count} tasks. Ready to sync to Cloud.`; div.className = "status success";
+            document.getElementById('apiButtons').style.display = 'flex'; // This now works!
+        });}
+
+        // --- CLOUD API LOGIC (OAUTH2) ---
+        
+        // GOOGLE TASKS
+        function pushToGoogleTasks() {
+            if (GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE') || GOOGLE_CLIENT_ID.includes('redacted')) {
+                alert("Developer Error: You must enter your real Google Client ID in the HTML code."); return;
+            }
+            const statusDiv = document.getElementById('statusTasks');
+            statusDiv.innerHTML = "⌛ Connecting to Google...";
+            
+            const client = google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: 'https://www.googleapis.com/auth/tasks',
+                callback: (response) => {
+                    if (response.error) { statusDiv.innerHTML = "❌ Google Login Failed."; return; }
+                    statusDiv.innerHTML = "🚀 Syncing to Google Tasks...";
+                    uploadTasksToGoogle(response.access_token, statusDiv);
+                },
+            });
+            client.requestAccessToken();
+        }
+
+        async function uploadTasksToGoogle(token, statusDiv) {
+            let success = 0;
+            for (const task of processedTasksData) {
+                try {
+                    await fetch('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: task.title, notes: task.notes, due: task.due })
+                    });
+                    success++;
+                } catch(e) { console.error(e); }
+            }
+            statusDiv.innerHTML = `✅ Successfully pushed ${success} tasks to Google!`;
+        }
+
+        // MICROSOFT TO DO
+        function pushToMicrosoftTasks() {
+            if (MICROSOFT_CLIENT_ID.includes('YOUR_MICROSOFT')) {
+                alert("Developer Error: You must enter your Microsoft Client ID in the HTML code."); return;
+            }
+            const statusDiv = document.getElementById('statusTasks');
+            statusDiv.innerHTML = "⌛ Connecting to Microsoft...";
+            
+            const msalConfig = { auth: { clientId: MICROSOFT_CLIENT_ID } };
+            const msalInstance = new msal.PublicClientApplication(msalConfig);
+            
+            msalInstance.loginPopup({ scopes: ["Tasks.ReadWrite"] }).then(response => {
+                statusDiv.innerHTML = "🚀 Syncing to Microsoft To Do...";
+                uploadTasksToMicrosoft(response.accessToken, statusDiv);
+            }).catch(error => {
+                statusDiv.innerHTML = "❌ Microsoft Login Failed or Blocked by Popup Blocker.";
+            });
+        }
+
+        async function uploadTasksToMicrosoft(token, statusDiv) {
+            let success = 0;
+            for (const task of processedTasksData) {
+                try {
+                    await fetch('https://graph.microsoft.com/v1.0/me/todo/lists/Tasks/tasks', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: task.title,
+                            body: { content: task.notes, contentType: "text" }
+                        })
+                    });
+                    success++;
+                } catch(e) { console.error(e); }
+            }
+            statusDiv.innerHTML = `✅ Successfully pushed ${success} tasks to Microsoft To Do!`;
+        }
+
         function downloadFile(content, mimeType, filename) {
             const blob = new Blob([content], { type: mimeType });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
+            link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link);
         }
     </script>
 </body>
